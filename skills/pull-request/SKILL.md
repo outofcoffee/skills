@@ -7,8 +7,11 @@ Create a GitHub pull request for the current branch following the rules below.
 
 ## PR title
 
+- Use **conventional commit** format: `<type>[optional scope]: <description>` (e.g. `feat: add flux capacitor support`)
+  - Common types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `ci`, `style`, `perf`, `build`
 - Keep under 70 characters
-- Use imperative mood (e.g. "Add flux capacitor support")
+- Use imperative mood
+- Do not end with a full stop
 - Use British English spelling
 
 ## PR description format
