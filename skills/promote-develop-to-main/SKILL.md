@@ -37,7 +37,7 @@ This will perform steps like running tests, updating the changelog file, committ
 If the `since` command completes successfully, run the command:
 
 ```bash
-git push origin main —-tags
+git push origin main --tags
 ```
 
 Monitor CI to see if the release build (for the tag we just pushed) succeeds, then notify the user of the outcome.
