@@ -1,0 +1,134 @@
+name: testflight
+
+# TEMPLATE — build the iOS app in Release and upload it to TestFlight on a
+# version tag. Replace the <PLACEHOLDERS> and delete the steps marked
+# "OPTIONAL" that don't apply. See references/testflight-ci.md.
+#
+#   <PROJECT>    the .xcodeproj name, e.g. MyApp.xcodeproj
+#   <SCHEME>     the iOS app scheme, e.g. MyApp
+#   <INFOPLIST>  path (relative to the project dir) to the app's Info.plist,
+#                e.g. MyApp/Info.plist
+#   working-directory below assumes the .xcodeproj lives in `app/`; if it's at
+#   the repo root, drop the `working-directory:` lines and the `../` on the
+#   export options path.
+#
+# The tag (minus `v`) becomes CFBundleShortVersionString; the run number
+# becomes CFBundleVersion — every upload is monotonically increasing.
+# Signing: an App Store Connect API key + `-allowProvisioningUpdates` (Xcode
+# creates the distribution cert/profile on the runner). The key needs the
+# ADMIN role to cloud-create a distribution certificate.
+#
+# Required repository secrets:
+#   APP_STORE_CONNECT_API_KEY_ID      Key ID of the .p8
+#   APP_STORE_CONNECT_API_ISSUER_ID   Issuer ID (UUID)
+#   APP_STORE_CONNECT_API_KEY_P8      base64 of AuthKey_XXXX.p8: `base64 -i AuthKey_XXXX.p8`
+#   APPLE_TEAM_ID                     10-char Team ID
+# Optional repository variable:
+#   TESTFLIGHT_BUILD_OFFSET           added to the run number (jump past pre-existing builds)
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  ios:
+    # Apple rejects uploads not built with the iOS 26 SDK; macos-latest still
+    # ships Xcode 16. Pin the macOS 26 image (default Xcode 26).
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v5
+
+      # OPTIONAL (non-Swift core): only if the app embeds a prebuilt framework
+      # you build in CI (e.g. a Go core via `gomobile bind`). Delete for a
+      # pure-Swift app.
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build the embedded xcframework
+        run: make xcframework
+
+      # OPTIONAL (XcodeGen): only if the .xcodeproj is generated from
+      # project.yml. Delete if the project is committed.
+      - name: Install xcodegen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        working-directory: app
+        run: xcodegen generate
+
+      # OPTIONAL: only if a dependency ships Metal shaders (Xcode 16.1+ splits
+      # the Metal toolchain out; older Xcode bundles it and rejects the flag).
+      - name: Ensure Metal toolchain
+        run: |
+          if xcodebuild -downloadComponent MetalToolchain >/dev/null 2>&1; then
+            echo "Metal toolchain ensured"
+          else
+            echo "-downloadComponent unsupported or toolchain already bundled; continuing"
+          fi
+
+      - name: Write App Store Connect API key
+        env:
+          ASC_API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/private_keys"
+          echo "$ASC_API_KEY_P8" | base64 --decode > "$RUNNER_TEMP/private_keys/AuthKey.p8"
+
+      # Marketing version from the tag, build number from the run number.
+      # Must run after any project generation and before archiving.
+      - name: Stamp version and build number
+        working-directory: app
+        env:
+          TAG: ${{ github.ref_name }}
+          RUN_NUMBER: ${{ github.run_number }}
+          BUILD_OFFSET: ${{ vars.TESTFLIGHT_BUILD_OFFSET || '0' }}
+        run: |
+          VERSION="${TAG#v}"
+          BUILD_NUMBER=$(( BUILD_OFFSET + RUN_NUMBER ))
+          echo "version $VERSION  build $BUILD_NUMBER"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" <INFOPLIST>
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" <INFOPLIST>
+
+      - name: Archive
+        working-directory: app
+        env:
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project <PROJECT> \
+            -scheme <SCHEME> \
+            -destination 'generic/platform=iOS' \
+            -configuration Release \
+            -archivePath "$RUNNER_TEMP/app.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/private_keys/AuthKey.p8" \
+            -authenticationKeyID "$KEY_ID" \
+            -authenticationKeyIssuerID "$ISSUER_ID" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            archive
+
+      - name: Export and upload to TestFlight
+        working-directory: app
+        env:
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+        run: |
+          set -o pipefail
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/app.xcarchive" \
+            -exportPath "$RUNNER_TEMP/export-ios" \
+            -exportOptionsPlist ../scripts/export-options-appstore.plist \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/private_keys/AuthKey.p8" \
+            -authenticationKeyID "$KEY_ID" \
+            -authenticationKeyIssuerID "$ISSUER_ID"
+
+      - name: Clean up API key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/private_keys"

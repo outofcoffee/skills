@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- App Store / TestFlight distribution. Used by both the manual
+         submission flow (docs/07-app-store-submission.md) and the
+         testflight CI workflow. teamID is intentionally omitted: it is
+         inferred from the signed archive, so the same plist works for
+         any developer account without committing a team ID. -->
+    <key>method</key>
+    <string>app-store</string>
+    <key>destination</key>
+    <string>upload</string>
+    <key>signingStyle</key>
+    <string>automatic</string>
+    <key>uploadSymbols</key>
+    <true/>
+    <!-- Use the build number we stamp ourselves rather than letting
+         Xcode rewrite it, so the uploaded build matches the tag/run. -->
+    <key>manageAppVersionAndBuildNumber</key>
+    <false/>
+</dict>
+</plist>
