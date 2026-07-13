@@ -33,6 +33,7 @@ Set them without the secret touching your context — pipe the file:
    ```
 4. **Export options: `destination: upload`.** With the export options plist set to `method: app-store`, `destination: upload`, the `xcodebuild -exportArchive` step uploads to TestFlight directly (pass the same API key via `-authenticationKeyPath/-authenticationKeyID/-authenticationKeyIssuerID`). No fastlane needed. Template: [../templates/export-options-appstore.plist](../templates/export-options-appstore.plist).
 5. **dSYM warning for gomobile/static frameworks is benign** — it's a warning, not a failure; the upload still completes.
+6. **Every build stalls on the encryption question** until `ITSAppUsesNonExemptEncryption` (`NO` for standard OS crypto/HTTPS only) is in Info.plist — the declaration is read at archive time, so it fixes builds from the *next* one onward. See [submission-review.md](submission-review.md).
 
 ## If the app embeds a non-Swift core (gomobile / Go)
 

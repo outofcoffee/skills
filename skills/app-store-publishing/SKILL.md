@@ -1,6 +1,6 @@
 ---
 name: app-store-publishing
-description: Publish an iOS/macOS app to the App Store and TestFlight end to end — create the App Store Connect record, write listing copy (name, subtitle, description, keywords) within Apple's limits, draft a privacy policy and answer the data questionnaire, capture bare screenshots from the simulator and upload them via the App Store Connect API, and wire up a tag-triggered TestFlight build in GitHub Actions. Use when releasing an app, editing its store listing/metadata, generating or uploading screenshots, or setting up App Store Connect API signing/upload. Bundles a screenshot-uploader script, CI/export/listing/privacy templates, and the hard-won gotchas.
+description: Publish an iOS/macOS app to the App Store and TestFlight end to end — create the App Store Connect record, write listing copy (name, subtitle, description, keywords) within Apple's limits, draft a privacy policy and answer the data questionnaire, capture bare screenshots from the simulator and upload them via the App Store Connect API, wire up a tag-triggered TestFlight build in GitHub Actions, set pricing, and submit for review via the API — including recovering from a rejection (resubmission, review-note answers for data-practice and face-data questions). Use when releasing an app, editing its store listing/metadata, generating or uploading screenshots, setting up App Store Connect API signing/upload, submitting or resubmitting for review, or responding to App Review. Bundles a screenshot-uploader script, CI/export/listing/privacy templates, and the hard-won gotchas.
 ---
 
 Publish an app to the App Store / TestFlight, and everything around the listing. This skill captures a full, working run: what the phases are, which parts a human must do, and the concrete gotchas that each cost real time to discover.
@@ -19,8 +19,10 @@ Work them in this order; each has a deep-dive reference file — read the one yo
    The required privacy-policy URL and the App Privacy data questionnaire. Template: [templates/privacy-policy.md](templates/privacy-policy.md).
 5. **Screenshots** → [references/screenshots.md](references/screenshots.md)
    Capture bare shots from the simulator (staging realistic data), then upload via the API with [scripts/upload_screenshots.py](scripts/upload_screenshots.py).
+6. **Submission, pricing & review** → [references/submission-review.md](references/submission-review.md)
+   Attach a build to the version, set the price, submit via the API — and the rejection playbook: resubmitting (thread replies alone restart nothing), pre-empting the data-practice/face-data questions, and the Kids Category trap.
 
-You rarely do all five in one sitting. Identify which the user is asking for and go straight there.
+You rarely do all six in one sitting. Identify which the user is asking for and go straight there.
 
 ## Cross-cutting rules (apply throughout)
 
@@ -62,6 +64,10 @@ Words in the **Name** and **Subtitle** are indexed for App Store search — don'
 - **App creation via API is unreliable** — create the app *record* in the console; the API is fine for everything after.
 - **Simulator text input:** the computer-use `type` action garbles into iOS text fields. Set the **Mac** clipboard (`pbcopy` — the Simulator auto-syncs it) and paste with Cmd+V.
 - **Icons via XcodeGen:** there is no `resources:` key — assets must be listed under `sources:`, or the asset catalog silently isn't compiled and the icon goes missing.
+- **Export compliance:** set `ITSAppUsesNonExemptEncryption` = `NO` in Info.plist, or every TestFlight build stalls on a manual encryption question.
+- **Rejections don't resume from the Messages thread.** Answering App Review in the thread leaves the submission in `UNRESOLVED_ISSUES` forever; the stuck submission is immutable — **cancel it and create a fresh one** (the version becomes editable again: rename it and attach the newest build rather than resubmitting the stale one).
+- **Pre-empt review questions in the notes:** camera apps get the face-data questionnaire even with zero face processing (listing the TrueDepth camera for front-camera selection is enough) — answer data-practices and face-data up front in `appStoreReviewDetail.notes`.
+- **Consistency is a rejection axis:** a "Free to use" description on a paid app, or a `kidsAgeBand` set while telling review it's not a Kids app — every surface (price, listing, age rating, review replies, privacy declarations) must tell one story.
 
 ## Templates and scripts
 
