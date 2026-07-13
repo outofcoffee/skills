@@ -1,0 +1,96 @@
+# Fastlane lanes for YOUR app.
+#
+# The listing text shown on the App Store lives in fastlane/metadata/ (the
+# standard `deliver` layout) — that directory is the source of truth. Two lanes:
+#   * push_metadata  — metadata only: no binary, no screenshots, no review
+#                      submission. Deliberately does NOT pass app_version, so it
+#                      edits the currently-editable App Store version WITHOUT
+#                      renaming it (deliver sets the version number to whatever
+#                      app_version it's given; passing the tag once renamed the
+#                      in-flight 1.0.0 version to 1.3.2). The App Store version
+#                      number is managed in App Store Connect. Used on demand by
+#                      the asc-metadata workflow, and locally.
+#   * submit_release — a real release: push all metadata, set the App Store
+#                      version to APP_VERSION, attach BUILD_NUMBER, and submit for
+#                      review. Here passing app_version IS correct. Used by
+#                      testflight.yml on a v*.*.* tag.
+# Screenshots for both go via scripts/upload_screenshots.py, not deliver.
+#
+# Per-release "What's New" notes are intentionally NOT tracked here (they change
+# every release); a missing release_notes.txt is left untouched, not blanked.
+#
+# Both lanes authenticate with the same App Store Connect API key, via env vars:
+#   ASC_KEY_ID       App Store Connect API key ID   (secret APP_STORE_CONNECT_API_KEY_ID)
+#   ASC_ISSUER_ID    Issuer ID                      (secret APP_STORE_CONNECT_API_ISSUER_ID)
+#   ASC_KEY_P8_B64   base64 of the AuthKey_XXXX.p8  (secret APP_STORE_CONNECT_API_KEY_P8)
+# submit_release also needs APP_VERSION and BUILD_NUMBER.
+
+default_platform(:ios)
+
+platform :ios do
+  desc "Push App Store listing text (metadata) to App Store Connect. " \
+       "Metadata only — no binary, no screenshots, no review submission."
+  lane :push_metadata do
+    api_key = app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_content: ENV.fetch("ASC_KEY_P8_B64"),
+      is_key_content_base64: true,
+      in_house: false,
+    )
+
+    upload_to_app_store(
+      api_key: api_key,
+      app_identifier: ENV.fetch("ASC_APP_IDENTIFIER"), # e.g. com.example.myapp
+      metadata_path: File.expand_path("metadata", __dir__),
+      # No app_version on purpose: edit the editable version, never rename it.
+      # Metadata only.
+      skip_binary_upload: true,
+      skip_screenshots: true,
+      skip_metadata: false,
+      # Non-interactive: no HTML preview, no review submission, no auto-release.
+      force: true,
+      run_precheck_before_submit: false,
+      precheck_include_in_app_purchases: false,
+      submit_for_review: false,
+      automatic_release: false,
+    )
+  end
+
+  desc "Release: push all metadata, attach the build, and submit for App Store review."
+  lane :submit_release do
+    api_key = app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_content: ENV.fetch("ASC_KEY_P8_B64"),
+      is_key_content_base64: true,
+      in_house: false,
+    )
+
+    upload_to_app_store(
+      api_key: api_key,
+      app_identifier: ENV.fetch("ASC_APP_IDENTIFIER"), # e.g. com.example.myapp
+      # A real release: set the App Store version to the tag and attach the build
+      # (already uploaded to TestFlight). Passing app_version is correct here.
+      app_version: ENV.fetch("APP_VERSION"),
+      build_number: ENV.fetch("BUILD_NUMBER"),
+      metadata_path: File.expand_path("metadata", __dir__),
+      skip_binary_upload: true,
+      skip_screenshots: true,
+      skip_metadata: false,
+      force: true,
+      run_precheck_before_submit: false,
+      precheck_include_in_app_purchases: false,
+      submit_for_review: true,
+      automatic_release: false,
+      # Answer the submission questions so review isn't held up. Matches the app:
+      # no encryption beyond exempt (ITSAppUsesNonExemptEncryption=false), no
+      # IDFA, no third-party content.
+      submission_information: {
+        export_compliance_uses_encryption: false,
+        add_id_info_uses_idfa: false,
+        content_rights_contains_third_party_content: false,
+      },
+    )
+  end
+end

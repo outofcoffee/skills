@@ -46,13 +46,18 @@ Comma-separated, no spaces, ≤100 chars. Include category terms, competitor/adj
 - **Marketing URL** (optional) — the product site.
 - **Privacy Policy URL** (required) — see [privacy.md](privacy.md).
 
-## Keep a master copy in the repo
+## Keep the source of truth in the repo
 
-Mirror every field into a version-controlled file (see [../templates/listing.md](../templates/listing.md)) and update it whenever the live listing changes — in both directions. App Store Connect fields don't diff, review, or back up well; the repo copy is the source of truth and makes changes reviewable.
+App Store Connect fields don't diff, review, or back up well — the repo copy is the source of truth and every live edit mirrors back to it. Two artifacts, two jobs:
+
+- **`fastlane/metadata/`** (the standard `deliver` layout: one file per field, `en-GB/description.txt` etc.) — the **machine-readable** copy that CI actually pushes to ASC via the lanes in [../templates/Fastfile](../templates/Fastfile). Once this exists, *edit these files, never the console*. See [submission-review.md](submission-review.md) for the push/submit lanes.
+- **[`app-store/listing.md`](../templates/listing.md)** — the human notes `deliver` can't carry: identifiers (Apple ID, SKU), copy rationale and character counts, and the checklist of human-only attestations (App Privacy publish, Age Rating, Content Rights).
+
+Consistency across these surfaces is itself a review axis: a description claiming "free" on a paid app, or listing text contradicting the age rating, is a rejection on its own (see [submission-review.md](submission-review.md)).
 
 ## App-level vs version-level fields
 
-- **App Information** (app-level, applies to all versions): Name, Subtitle, Category, Content Rights, Privacy Policy URL.
-- **Version** (per-version): Promotional text, Description, Keywords, Support URL, Marketing URL, Copyright, What's New, Screenshots.
+- **App Information** (app-level, editable anytime — even while live or in review): Name, Subtitle, Categories, Content Rights, Privacy Policy URL.
+- **Version** (per-version, needs an *editable* App Store version): Promotional text, Description, Keywords, Support URL, Marketing URL, Copyright, What's New, Screenshots.
 
 Set the **Primary/Secondary Category** on App Information — it isn't asked at app creation and is required for submission.

@@ -12,7 +12,7 @@ Work them in this order; each has a deep-dive reference file — read the one yo
 1. **App Store Connect setup** → [references/app-store-connect-setup.md](references/app-store-connect-setup.md)
    The app record, the account prerequisites that silently block it, and the API keys (with the crucial role distinction).
 2. **TestFlight CI** → [references/testflight-ci.md](references/testflight-ci.md)
-   A tag-triggered GitHub Actions build that signs with an API key and uploads to TestFlight. Template: [templates/testflight.yml](templates/testflight.yml).
+   A tag-triggered GitHub Actions build that uploads to TestFlight — and the proven end state: a develop→beta channel, a persisted distribution certificate (cloud signing hits Apple's cert cap on ephemeral runners), and a tag→submit-for-review pipeline. Template: [templates/testflight.yml](templates/testflight.yml).
 3. **Listing copy** → [references/listing-copy.md](references/listing-copy.md)
    Name, subtitle, description, keywords — the character limits, the search-indexing rules, and how to write it. Master-copy template: [templates/listing.md](templates/listing.md).
 4. **Privacy** → [references/privacy.md](references/privacy.md)
@@ -20,7 +20,7 @@ Work them in this order; each has a deep-dive reference file — read the one yo
 5. **Screenshots** → [references/screenshots.md](references/screenshots.md)
    Capture bare shots from the simulator (staging realistic data), then upload via the API with [scripts/upload_screenshots.py](scripts/upload_screenshots.py).
 6. **Submission, pricing & review** → [references/submission-review.md](references/submission-review.md)
-   Attach a build to the version, set the price, submit via the API — and the rejection playbook: resubmitting (thread replies alone restart nothing), pre-empting the data-practice/face-data questions, and the Kids Category trap.
+   Attach a build to the version, set the price, submit via the API — then automate it (fastlane `deliver` metadata push + submit in CI, [templates/Fastfile](templates/Fastfile)) — and the rejection playbook: resubmitting (thread replies alone restart nothing), pre-empting the data-practice/face-data questions, and the Kids Category trap.
 
 You rarely do all six in one sitting. Identify which the user is asking for and go straight there.
 
@@ -28,7 +28,7 @@ You rarely do all six in one sitting. Identify which the user is asking for and 
 
 - **Never do the human-only steps.** Do not enter Apple ID credentials, and do not accept legal agreements or attestations on the user's behalf: the Paid Apps Agreement, the App Privacy *Publish* confirmation, Age Rating, Content Rights, EU trader status, tax forms, or bank details. Fill in the *factual* draft fields, then stop and hand these to the user with a clear explanation of what's being attested.
 - **Confirm irreversible/outward actions first.** Creating the app record fixes the **bundle ID and SKU permanently**; clicking **Create**, **Submit**, or **Publish** is a commitment. Show the filled form and get a yes.
-- **Keep a master copy of the listing text in the repo** (e.g. an `app-store/` dir), and mirror every live edit back to it. App Store Connect fields don't diff or review well; the repo copy is the source of truth. See [templates/listing.md](templates/listing.md).
+- **Keep the listing source of truth in the repo.** Machine-readable copy in `fastlane/metadata/` (the `deliver` layout CI pushes — edit files, not the console) plus a human notes file for identifiers, rationale and the human-only attestations ([templates/listing.md](templates/listing.md)). App Store Connect fields don't diff or review well.
 - **Secrets stay out of the transcript.** Take the API key `.p8` as a file path, not pasted text. Scripts read it from a path / env var. Never print private keys.
 - **Verify saves.** App Store Connect often shows a transient "Sorry, something went wrong" banner on save even when it succeeded — reload the page and re-read the field to confirm, rather than trusting the banner either way.
 - **Browsers can't be fully driven.** File-pickers (screenshot upload) and OAuth/login can't be automated. Use the App Store Connect **API** for uploads; hand login and file-drag to the user if no API path exists.
@@ -68,11 +68,16 @@ Words in the **Name** and **Subtitle** are indexed for App Store search — don'
 - **Rejections don't resume from the Messages thread.** Answering App Review in the thread leaves the submission in `UNRESOLVED_ISSUES` forever; the stuck submission is immutable — **cancel it and create a fresh one** (the version becomes editable again: rename it and attach the newest build rather than resubmitting the stale one).
 - **Pre-empt review questions in the notes:** camera apps get the face-data questionnaire even with zero face processing (listing the TrueDepth camera for front-camera selection is enough) — answer data-practices and face-data up front in `appStoreReviewDetail.notes`.
 - **Consistency is a rejection axis:** a "Free to use" description on a paid app, or a `kidsAgeBand` set while telling review it's not a Kids app — every surface (price, listing, age rating, review replies, privacy declarations) must tell one story.
+- **Cloud signing hits the certificate cap.** `-allowProvisioningUpdates` on ephemeral runners mints a new distribution cert per run until archives fail with "maximum number of certificates" — persist one cert + profile as secrets and sign manually.
+- **`deliver` renames the App Store version** to whatever `app_version` it's given — correct on a release, but a metadata-only push must pass *none*, or it renames the in-flight version under a pending submission.
+- **A build isn't attachable until Apple finishes processing it** (5–30 min after upload) — poll before `deliver` tries to attach ([scripts/wait_for_build.py](scripts/wait_for_build.py)).
 
 ## Templates and scripts
 
-- [templates/testflight.yml](templates/testflight.yml) — the CI workflow.
+- [templates/testflight.yml](templates/testflight.yml) — the CI workflow (starter shape; end state in the reference).
+- [templates/Fastfile](templates/Fastfile) — `push_metadata` (metadata only, never renames the version) and `submit_release` (metadata + attach build + submit) lanes.
 - [templates/export-options-appstore.plist](templates/export-options-appstore.plist) — App Store export options.
-- [templates/listing.md](templates/listing.md) — master-copy for the listing text.
+- [templates/listing.md](templates/listing.md) — human notes for the listing (identifiers, rationale, attestations).
 - [templates/privacy-policy.md](templates/privacy-policy.md) — a no-data-collection privacy policy.
 - [scripts/upload_screenshots.py](scripts/upload_screenshots.py) — screenshot uploader (only needs `cryptography`).
+- [scripts/wait_for_build.py](scripts/wait_for_build.py) — poll a build's `processingState` to `VALID` before attaching it.

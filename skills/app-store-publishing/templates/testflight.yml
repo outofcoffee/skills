@@ -18,6 +18,12 @@ name: testflight
 # creates the distribution cert/profile on the runner). The key needs the
 # ADMIN role to cloud-create a distribution certificate.
 #
+# CAUTION - fine for the first runs, wrong at scale: every run on an ephemeral
+# runner mints a NEW distribution certificate, and they pile up until archives
+# fail with "maximum number of certificates". Once releases are routine, switch
+# to a persisted cert + manual signing: see "Signing: the certificate cap" in
+# references/testflight-ci.md.
+#
 # Required repository secrets:
 #   APP_STORE_CONNECT_API_KEY_ID      Key ID of the .p8
 #   APP_STORE_CONNECT_API_ISSUER_ID   Issuer ID (UUID)

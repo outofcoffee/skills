@@ -39,6 +39,19 @@ Add to Info.plist so every build answers the encryption question at archive time
 
 Step 4 succeeding (state `WAITING_FOR_REVIEW`) is also your verification that every required piece was in place — Apple validates App Privacy publication, age rating, screenshots, etc. at submit time and rejects the call naming what's missing. Typical review turnaround: 24–48h, `WAITING_FOR_REVIEW → IN_REVIEW →` approved/rejected. Check the version's release option (auto vs manual) *before* approval if the user wants to control the go-live moment.
 
+## Automating submission in CI (the proven end state)
+
+Once the manual flow has worked once, fold it into the release pipeline so a `v*.*.*` tag is a full hands-off release (workflow shape in [testflight-ci.md](testflight-ci.md)). The moving parts, all runnable on a **Linux** runner with the same ASC API key:
+
+- **Listing text lives in `fastlane/metadata/`** (the standard `deliver` layout) as the machine-readable source of truth — edit those files, not App Store Connect. See [listing-copy.md](listing-copy.md) for the app-level vs version-level field split.
+- **Wait for processing first.** `deliver` can only attach a build that has finished processing (asynchronous, 5–30 min after upload). Poll `processingState` until `VALID`: [../scripts/wait_for_build.py](../scripts/wait_for_build.py).
+- **One `deliver` call does the rest** — push all metadata, set the version, attach the build, submit. Lanes in [../templates/Fastfile](../templates/Fastfile):
+  - `submit_release` — passes `app_version` (the tag) and `build_number`, `submit_for_review: true`. Pre-answer the submission questions via `submission_information` (export compliance / IDFA / third-party content) so review isn't held up on them.
+  - `push_metadata` — metadata **only**, for typo fixes between releases: no binary, no screenshots, never submits.
+- **The `app_version` rename trap (cost a real incident):** `deliver` *renames* the editable App Store version to whatever `app_version` you pass. That's correct on a release (set it to the tag) — but a metadata-only push must pass **no** `app_version`, or it will silently rename the in-flight version out from under a pending submission.
+- Screenshots stay with [../scripts/upload_screenshots.py](../scripts/upload_screenshots.py), not `deliver`.
+- Don't track per-release "What's New" text in the repo (it changes every release); a missing `release_notes.txt` is left untouched by `deliver`.
+
 ## Rejection: Guideline 2.1 "Information Needed" (the nine-day lesson)
 
 - **A Messages-thread reply does NOT restart review.** The submission sits in `UNRESOLVED_ISSUES` indefinitely, with Apple waiting on you. Post the answers in the thread *and* resubmit.
