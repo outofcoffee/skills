@@ -13,6 +13,7 @@ Create a git commit for the current staged and unstaged changes, following the r
 - Do **not** end the subject line with a full stop
 - Use **British English** spelling (e.g. `organise`, `colour`, `behaviour`, `initialise`)
 - Do **not** include a `Co-Authored-By` trailer or reference the agent name
+- Do **not** include a link to the agent session (e.g. `claude.ai/code/session/...`) or any external tool used to generate the commit
 
 ## Commit body
 
