@@ -39,3 +39,4 @@ Once you have performed the safety checks above, if EITHER the work scope does n
 ## After making the change
 
 Summarise to the user the steps taken, what the PR URL was.
+If the work is an openspec change, remind the user they will need to archive the change.
