@@ -1,0 +1,24 @@
+name: Lint skills
+
+on: push
+
+jobs:
+  agent-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install agent-lint (pinned release)
+        env:
+          AGENT_LINT_VERSION: "0.3.0"
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl -fsSL -O "https://github.com/ai-agent-manager/agent-lint/releases/download/v${AGENT_LINT_VERSION}/agent-lint_${AGENT_LINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL -O "https://github.com/ai-agent-manager/agent-lint/releases/download/v${AGENT_LINT_VERSION}/checksums.txt"
+          grep "linux_amd64.tar.gz" checksums.txt | sha256sum -c -
+          tar -xzf "agent-lint_${AGENT_LINT_VERSION}_linux_amd64.tar.gz"
+          sudo mv agent-lint /usr/local/bin/
+
+      - name: Lint skills
+        run: agent-lint check --root skills

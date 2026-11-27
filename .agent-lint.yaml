@@ -1,0 +1,6 @@
+# agent-lint configuration for this repo.
+# See https://github.com/ai-agent-manager/agent-lint
+skills:
+  # pr-merge-on-green intentionally uses Claude Code's
+  # `disable-model-invocation` frontmatter extension.
+  allow_claude_code_fields: true

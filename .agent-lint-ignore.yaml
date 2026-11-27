@@ -1,0 +1,10 @@
+# agent-lint ignore rules for this repo.
+# Keep ignores narrow and comment why they exist.
+# See https://github.com/ai-agent-manager/agent-lint/blob/main/docs/ignore.md
+ignores:
+  # Illustrative example paths inside code snippets (e.g. `./before.png`).
+  # They are not real files; the skill's whole point is showing how
+  # fictional image references get embedded.
+  - path: skills/github-attach-images/SKILL.md
+    rules:
+      - skill/reference-missing
